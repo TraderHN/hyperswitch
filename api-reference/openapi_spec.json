@@ -989,585 +989,652 @@
         ]
       }
     },
-
-    "components": {
-      "securitySchemes": {
-        "api_key": {
-          "type": "apiKey",
-          "in": "header",
-          "name": "X-API-Key"
-        },
-        "oauth2": {
-          "type": "oauth2",
-          "flows": {
-            "clientCredentials": {
-              "tokenUrl": "https://api.multipaga.com/oauth2/token",
-              "scopes": {
-                "remittances:create":  "Create remittances",
-                "remittances:read":    "Read remittances",
-                "remittances:update":  "Update remittances",
-                "remittances:delete":  "Delete remittances",
-                "remittances:pay":     "Process remittance payments",
-                "remittances:webhook": "Receive remittance webhooks",
-                "remittances:sync":    "Synchronize remittances"
-              }
-            }
-          }
-        }
+  "components": {
+    "securitySchemes": {
+      "api_key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
       },
-  
-      "schemas": {
-        "ErrorResponse": {
-          "type": "object",
-          "required": ["code", "message"],
-          "properties": {
-            "code":    { "type": "string" },
-            "message": { "type": "string" }
-          }
-        },
-  
-        "RemittanceStatus": {
-          "type": "string",
-          "enum": [
-            "CREATED",
-            "PENDING",
-            "PROCESSING",
-            "AUTHORIZED",
-            "COMPLETED",
-            "FAILED",
-            "CANCELLED",
-            "REVERSED"
-          ]
-        },
-  
-        "RemittanceCreateRequest": {
-          "type": "object",
-          "required": [
-            "connector",
-            "amount",
-            "currency",
-            "sender",
-            "beneficiary",
-            "remittance_date",
-            "reference"
-          ],
-          "properties": {
-            "connector":      { "type": "string", "description": "Connector id (e.g. stripe, lafise)" },
-            "bank_id":        { "type": "string", "description": "Bank/country ISO code (optional)" },
-            "amount":         { "type": "integer", "minimum": 0, "description": "Minor units" },
-            "currency":       { "type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3, "maxLength": 3 },
-            "sender":         { "type": "string", "maxLength": 255 },
-            "beneficiary":    { "type": "string", "maxLength": 255 },
-            "remittance_date":{ "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-            "reference":      { "type": "string", "maxLength": 255 },
-            "callback_url":   { "type": "string", "format": "uri" },
-            "metadata":       { "type": "object", "additionalProperties": { "type": "string" } }
-          }
-        },
-  
-        "RemittanceUpdateRequest": {
-          "type": "object",
-          "description": "Partial update of a remittance",
-          "properties": {
-            "connector":      { "type": "string" },
-            "bank_id":        { "type": "string" },
-            "amount":         { "type": "integer", "minimum": 0 },
-            "currency":       { "type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3, "maxLength": 3 },
-            "sender":         { "type": "string", "maxLength": 255 },
-            "beneficiary":    { "type": "string", "maxLength": 255 },
-            "remittance_date":{ "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-            "reference":      { "type": "string", "maxLength": 255 },
-            "callback_url":   { "type": "string", "format": "uri" },
-            "metadata":       { "type": "object", "additionalProperties": { "type": "string" } }
-          }
-        },
-  
-        "RemittanceResponse": {
-          "type": "object",
-          "required": [
-            "remittance_id",
-            "status",
-            "amount",
-            "currency",
-            "created_at",
-            "correlation_id"
-          ],
-          "properties": {
-            "remittance_id":   { "type": "string" },
-            "status":          { "$ref": "#/components/schemas/RemittanceStatus" },
-            "failure_reason":  { "type": "string", "nullable": true },
-            "amount":          { "type": "integer" },
-            "currency":        { "type": "string" },
-            "created_at":      { "type": "string", "format": "date-time" },
-            "correlation_id":  { "type": "string", "format": "uuid" }
-          }
-        },
-  
-        "RemittanceCreateResponse": {
-          "allOf": [
-            { "$ref": "#/components/schemas/RemittanceResponse" }
-          ]
-        },
-  
-        "AchDetails": {
-          "type": "object",
-          "required": ["account_number", "routing_number", "account_type"],
-          "properties": {
-            "account_number": { "type": "string" },
-            "routing_number": { "type": "string" },
-            "account_type":   { "type": "string", "enum": ["checking","savings"] }
-          },
-          "unevaluatedProperties": false
-        },
-        "BankTransferDetails": {
-          "type": "object",
-          "required": ["bank_code","account_number"],
-          "properties": {
-            "bank_code":      { "type": "string" },
-            "account_number": { "type": "string" }
-          },
-          "unevaluatedProperties": false
-        },
-        "WalletDetails": {
-          "type": "object",
-          "required": ["wallet_provider","wallet_id"],
-          "properties": {
-            "wallet_provider": { "type": "string" },
-            "wallet_id":       { "type": "string" }
-          },
-          "unevaluatedProperties": false
-        },
-        "CryptoDetails": {
-          "type": "object",
-          "required": ["asset","address"],
-          "properties": {
-            "asset":   { "type": "string" },
-            "address": { "type": "string" }
-          },
-          "unevaluatedProperties": false
-        },
-  
-        "RemittancePaymentRequest": {
-          "type": "object",
-          "required": ["method","details"],
-          "properties": {
-            "method": {
-              "type": "string",
-              "enum": ["ach", "bank_transfer", "wallet", "crypto"]
-            },
-            "details": {
-              "oneOf": [
-                { "$ref": "#/components/schemas/AchDetails" },
-                { "$ref": "#/components/schemas/BankTransferDetails" },
-                { "$ref": "#/components/schemas/WalletDetails" },
-                { "$ref": "#/components/schemas/CryptoDetails" }
-              ]
+      "oauth2": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.multipaga.com/oauth2/token",
+            "scopes": {
+              "remittances:create":  "Create remittances",
+              "remittances:read":    "Read remittances",
+              "remittances:update":  "Update remittances",
+              "remittances:delete":  "Delete remittances",
+              "remittances:pay":     "Process remittance payments",
+              "remittances:webhook": "Receive remittance webhooks",
+              "remittances:sync":    "Synchronize remittances"
             }
-          },
-          "unevaluatedProperties": false
-        },
-  
-        "RemittancePaymentResponse": {
-          "allOf": [
-            { "$ref": "#/components/schemas/RemittanceResponse" },
-            {
-              "type": "object",
-              "properties": {
-                "payment_id":     { "type": "string" },
-                "payment_status": { "type": "string" },
-                "payout_id":      { "type": "string", "nullable": true }
-              }
-            }
-          ]
-        },
-  
-        "ThirdPartyPaymentRequest": {
-          "type": "object",
-          "required": ["third_party_account","amount","currency"],
-          "properties": {
-            "third_party_account": { "type": "string" },
-            "amount":              { "type": "integer", "minimum": 0 },
-            "currency":            { "type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3, "maxLength": 3 }
           }
-        },
-  
-        "ThirdPartyPaymentResponse": {
-          "allOf": [
-            { "$ref": "#/components/schemas/RemittanceResponse" },
-            {
-              "type": "object",
-              "properties": {
-                "payout_id": { "type": "string" }
-              }
-            }
-          ]
-        },
-  
-        "Transaction": {
-          "type": "object",
-          "required": ["id","remittance_id","merchant_id","amount","currency","created_at"],
-          "properties": {
-            "id":            { "type": "string" },
-            "remittance_id": { "type": "string" },
-            "merchant_id":   { "type": "string" },
-            "amount":        { "type": "integer" },
-            "currency":      { "type": "string" },
-            "created_at":    { "type": "string", "format": "date-time" }
-          }
-        },
-  
-        "TransactionListResponse": {
-          "type": "object",
-          "required": ["data","has_more"],
-          "properties": {
-            "data":        { "type": "array", "items": { "$ref": "#/components/schemas/Transaction" } },
-            "next_cursor": { "type": "string", "nullable": true },
-            "has_more":    { "type": "boolean" }
-          }
-        },
-  
-        "RemittanceStatusUpdate": {
-          "type": "object",
-          "required": ["remittance_id","status","updated_at"],
-          "properties": {
-            "remittance_id":  { "type": "string" },
-            "status":         { "$ref": "#/components/schemas/RemittanceStatus" },
-            "failure_reason": { "type": "string", "nullable": true },
-            "updated_at":     { "type": "string", "format": "date-time" },
-            "external_code":  { "type": "string", "nullable": true }
-          }
-        },
-  
-        "SyncMerchantRequest": {
-          "type": "object",
-          "required": ["since"],
-          "properties": {
-            "since": { "type": "string", "format": "date-time" }
-          }
-        },
-        "SyncMerchantResponse": {
-          "type": "object",
-          "properties": {
-            "synced_count": { "type": "integer" }
-          }
-        },
-  
-        "SyncProfileRequest": {
-          "type": "object",
-          "required": ["since"],
-          "properties": {
-            "since": { "type": "string", "format": "date-time" }
-          }
-        },
-        "SyncProfileResponse": {
-          "type": "object",
-          "properties": {
-            "synced_count": { "type": "integer" }
-          }
-        }
-      } 
-    }, 
-  
-    "paths": {
-      "/remittances": {
-        "post": {
-          "tags": ["Remittances"],
-          "summary": "Create Remittance",
-          "operationId": "CreateRemittance",
-          "parameters": [
-            { "name": "X-Merchant-Id",   "in": "header", "required": true, "schema": { "type": "string" } },
-            { "name": "X-Profile-Id",    "in": "header", "required": true, "schema": { "type": "string" } },
-            { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string" } },
-            { "name": "X-Correlation-Id","in": "header", "schema": { "type": "string", "format": "uuid" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/RemittanceCreateRequest" }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Remittance created",
-              "headers": {
-                "Location":        { "schema": { "type": "string", "format": "uri" } },
-                "X-Correlation-Id":{ "schema": { "type": "string", "format": "uuid" } }
-              },
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/RemittanceCreateResponse" }
-                }
-              }
-            },
-            "400": { "description": "Invalid request",   "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "401": { "description": "Unauthorized",      "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "409": { "description": "Idempotency conflict", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error",    "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:create"] } ]
-        }
-      },
-  
-      "/remittances/{remittance_id}": {
-        "get": {
-          "tags": ["Remittances"],
-          "summary": "Retrieve Remittance",
-          "operationId": "RetrieveRemittance",
-          "parameters": [
-            { "name": "remittance_id","in": "path", "required": true, "schema": { "type": "string" } },
-            { "name": "force_sync",   "in": "query","schema": { "type": "boolean", "default": false } },
-            { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } }
-          ],
-          "responses": {
-            "200": { "description": "Remittance details",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RemittanceResponse" } } }
-            },
-            "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "404": { "description": "Not found",    "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:read"] } ]
-        },
-  
-        "patch": {
-          "tags": ["Remittances"],
-          "summary": "Update Remittance",
-          "operationId": "UpdateRemittance",
-          "parameters": [
-            { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
-            { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "Idempotency-Key","in": "header","schema": { "type": "string" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/RemittanceUpdateRequest" }
-              }
-            }
-          },
-          "responses": {
-            "200": { "description": "Updated",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RemittanceResponse" } } }
-            },
-            "400": { "description": "Invalid payload","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "401": { "description": "Unauthorized","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:update"] } ]
-        },
-  
-        "delete": {
-          "tags": ["Remittances"],
-          "summary": "Delete Remittance",
-          "operationId": "DeleteRemittance",
-          "parameters": [
-            { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
-            { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "Idempotency-Key","in": "header","schema": { "type": "string" } }
-          ],
-          "responses": {
-            "204": { "description": "Deleted successfully",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } }
-            },
-            "400": { "description": "Bad request","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "401": { "description": "Unauthorized","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "404": { "description": "Not found","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:delete"] } ]
-        }
-      },
-  
-      "/remittances/{remittance_id}/pay": {
-        "post": {
-          "tags": ["Remittances"],
-          "summary": "Pay Remittance",
-          "operationId": "PayRemittance",
-          "parameters": [
-            { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
-            { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "Idempotency-Key","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Correlation-Id","in": "header","schema": { "type": "string", "format": "uuid" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/RemittancePaymentRequest" }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Payment processed",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/RemittancePaymentResponse" }
-                }
-              }
-            },
-            "400": { "description": "Invalid payment","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "402": { "description": "Payment declined","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "422": { "description": "Validation error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:pay"] } ]
-        }
-      },
-  
-      "/remittances/{remittance_id}/pay/thirdparty": {
-        "post": {
-          "tags": ["Remittances"],
-          "summary": "Pay Remittance to Third‑Party",
-          "operationId": "PayRemittanceThirdParty",
-          "parameters": [
-            { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
-            { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "Idempotency-Key","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Correlation-Id","in": "header","schema": { "type": "string", "format": "uuid" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ThirdPartyPaymentRequest" }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Third‑party payment processed",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/ThirdPartyPaymentResponse" }
-                }
-              }
-            },
-            "400": { "description": "Invalid data","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "422": { "description": "Validation error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:pay"] } ]
-        }
-      },
-  
-      "/remittances/transactions": {
-        "get": {
-          "tags": ["Remittances"],
-          "summary": "List Remittance Transactions",
-          "operationId": "ListRemittanceTransactions",
-          "parameters": [
-            { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
-            { "name": "limit",  "in": "query","schema": { "type": "integer","minimum": 1,"maximum": 100,"default": 10 } },
-            { "name": "cursor", "in": "query","schema": { "type": "string","nullable": true } }
-          ],
-          "responses": {
-            "200": { "description": "Transaction list",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TransactionListResponse" } } }
-            },
-            "500": { "description": "Internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:read"] } ]
-        }
-      },
-  
-      "/remittances/webhook": {
-        "post": {
-          "tags": ["Remittances"],
-          "summary": "Remittance Webhook",
-          "operationId": "RemittanceWebhook",
-          "parameters": [
-            { "name": "X-Correlation-Id","in":"header","schema": { "type": "string", "format":"uuid" } },
-            { "name": "X-Signature","in":"header","required": true,"schema": { "type": "string" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/RemittanceStatusUpdate" }
-              }
-            }
-          },
-          "responses": {
-            "200": { "description": "Accepted" },
-            "400": { "description": "Invalid payload","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:webhook"] } ]
-        }
-      },
-  
-      "/remittances/sync/merchant": {
-        "post": {
-          "tags": ["Remittances"],
-          "summary": "Sync Remittances by Merchant",
-          "operationId": "SyncRemittancesMerchant",
-          "parameters": [
-            { "name": "X-Merchant-Id","in":"header","required": true,"schema": { "type": "string" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncMerchantRequest" }
-              }
-            }
-          },
-          "responses": {
-            "200": { "description": "Sync complete",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncMerchantResponse" } } }
-            },
-            "400": { "description": "Invalid data","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:sync"] } ]
-        }
-      },
-  
-      "/remittances/sync/profile": {
-        "post": {
-          "tags": ["Remittances"],
-          "summary": "Sync Remittances by Profile",
-          "operationId": "SyncRemittancesProfile",
-          "parameters": [
-            { "name": "X-Profile-Id","in":"header","required": true,"schema": { "type": "string" } }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SyncProfileRequest" }
-              }
-            }
-          },
-          "responses": {
-            "200": { "description": "Sync complete",
-              "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
-              "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SyncProfileResponse" } } }
-            },
-            "400": { "description": "Invalid data","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
-            "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
-          },
-          "security": [ { "api_key": [], "oauth2": ["remittances:sync"] } ]
         }
       }
     },
+
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code":    { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+
+      "RemittanceStatus": {
+        "type": "string",
+        "enum": [
+          "CREATED",
+          "PENDING",
+          "PROCESSING",
+          "AUTHORIZED",
+          "COMPLETED",
+          "FAILED",
+          "CANCELLED",
+          "REVERSED"
+        ]
+      },
+
+      "RemittanceCreateRequest": {
+        "type": "object",
+        "required": [
+          "connector",
+          "amount",
+          "currency",
+          "sender",
+          "beneficiary",
+          "remittance_date",
+          "reference"
+        ],
+        "properties": {
+          "connector":       { "type": "string", "description": "Connector id (e.g. stripe, lafise)" },
+          "bank_id":         { "type": "string", "description": "Bank/country ISO code (optional)" },
+          "amount":          { "type": "integer", "minimum": 0, "description": "Minor units" },
+          "currency":        { "type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3, "maxLength": 3 },
+          "sender":          { "type": "string", "maxLength": 255 },
+          "beneficiary":     { "type": "string", "maxLength": 255 },
+          "remittance_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "reference":       { "type": "string", "maxLength": 255 },
+          "callback_url":    { "type": "string", "format": "uri" },
+          "metadata":        { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+
+      "RemittanceUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "connector":       { "type": "string" },
+          "bank_id":         { "type": "string" },
+          "amount":          { "type": "integer", "minimum": 0 },
+          "currency":        { "type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3, "maxLength": 3 },
+          "sender":          { "type": "string", "maxLength": 255 },
+          "beneficiary":     { "type": "string", "maxLength": 255 },
+          "remittance_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+          "reference":       { "type": "string", "maxLength": 255 },
+          "callback_url":    { "type": "string", "format": "uri" },
+          "metadata":        { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      },
+
+      "RemittanceResponse": {
+        "type": "object",
+        "required": [
+          "remittance_id",
+          "status",
+          "amount",
+          "currency",
+          "created_at",
+          "correlation_id"
+        ],
+        "properties": {
+          "remittance_id":  { "type": "string" },
+          "status":         { "$ref": "#/components/schemas/RemittanceStatus" },
+          "failure_reason": { "type": "string", "nullable": true },
+          "amount":         { "type": "integer" },
+          "currency":       { "type": "string" },
+          "created_at":     { "type": "string", "format": "date-time" },
+          "correlation_id": { "type": "string", "format": "uuid" }
+        }
+      },
+
+      "RemittanceCreateResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/RemittanceResponse" }
+        ]
+      },
+
+      "AchDetails": {
+        "type": "object",
+        "required": ["account_number", "routing_number", "account_type"],
+        "properties": {
+          "account_number": { "type": "string" },
+          "routing_number": { "type": "string" },
+          "account_type":   { "type": "string", "enum": ["checking", "savings"] }
+        },
+        "unevaluatedProperties": false
+      },
+
+      "BankTransferDetails": {
+        "type": "object",
+        "required": ["bank_code", "account_number"],
+        "properties": {
+          "bank_code":      { "type": "string" },
+          "account_number": { "type": "string" }
+        },
+        "unevaluatedProperties": false
+      },
+
+      "WalletDetails": {
+        "type": "object",
+        "required": ["wallet_provider", "wallet_id"],
+        "properties": {
+          "wallet_provider": { "type": "string" },
+          "wallet_id":       { "type": "string" }
+        },
+        "unevaluatedProperties": false
+      },
+
+      "CryptoDetails": {
+        "type": "object",
+        "required": ["asset", "address"],
+        "properties": {
+          "asset":   { "type": "string" },
+          "address": { "type": "string" }
+        },
+        "unevaluatedProperties": false
+      },
+
+      "RemittancePaymentRequest": {
+        "type": "object",
+        "required": ["method", "details"],
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["ach", "bank_transfer", "wallet", "crypto"]
+          },
+          "details": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/AchDetails" },
+              { "$ref": "#/components/schemas/BankTransferDetails" },
+              { "$ref": "#/components/schemas/WalletDetails" },
+              { "$ref": "#/components/schemas/CryptoDetails" }
+            ]
+          }
+        },
+        "unevaluatedProperties": false
+      },
+
+      "RemittancePaymentResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/RemittanceResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "payment_id":     { "type": "string" },
+              "payment_status": { "type": "string" },
+              "payout_id":      { "type": "string", "nullable": true }
+            }
+          }
+        ]
+      },
+
+      "ThirdPartyPaymentRequest": {
+        "type": "object",
+        "required": ["third_party_account", "amount", "currency"],
+        "properties": {
+          "third_party_account": { "type": "string" },
+          "amount":              { "type": "integer", "minimum": 0 },
+          "currency":            { "type": "string", "pattern": "^[A-Z]{3}$", "minLength": 3, "maxLength": 3 }
+        }
+      },
+
+      "ThirdPartyPaymentResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/RemittanceResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "payout_id": { "type": "string" }
+            }
+          }
+        ]
+      },
+
+      "Transaction": {
+        "type": "object",
+        "required": ["id", "remittance_id", "merchant_id", "amount", "currency", "created_at"],
+        "properties": {
+          "id":            { "type": "string" },
+          "remittance_id": { "type": "string" },
+          "merchant_id":   { "type": "string" },
+          "amount":        { "type": "integer" },
+          "currency":      { "type": "string" },
+          "created_at":    { "type": "string", "format": "date-time" }
+        }
+      },
+
+      "TransactionListResponse": {
+        "type": "object",
+        "required": ["data", "has_more"],
+        "properties": {
+          "data":        { "type": "array", "items": { "$ref": "#/components/schemas/Transaction" } },
+          "next_cursor": { "type": "string", "nullable": true },
+          "has_more":    { "type": "boolean" }
+        }
+      },
+
+      "RemittanceListResponse": {
+        "type": "object",
+        "required": ["data", "has_more"],
+        "properties": {
+          "data":        { "type": "array", "items": { "$ref": "#/components/schemas/RemittanceResponse" } },
+          "next_cursor": { "type": "string", "nullable": true },
+          "has_more":    { "type": "boolean" }
+        }
+      },
+
+      "RemittanceStatusUpdate": {
+        "type": "object",
+        "required": ["remittance_id", "status", "updated_at"],
+        "properties": {
+          "remittance_id":  { "type": "string" },
+          "status":         { "$ref": "#/components/schemas/RemittanceStatus" },
+          "failure_reason": { "type": "string", "nullable": true },
+          "updated_at":     { "type": "string", "format": "date-time" },
+          "external_code":  { "type": "string", "nullable": true }
+        }
+      },
+
+      "SyncMerchantRequest": {
+        "type": "object",
+        "required": ["since"],
+        "properties": {
+          "since": { "type": "string", "format": "date-time" }
+        }
+      },
+
+      "SyncMerchantResponse": {
+        "type": "object",
+        "properties": {
+          "synced_count": { "type": "integer" }
+        }
+      },
+
+      "SyncProfileRequest": {
+        "type": "object",
+        "required": ["since"],
+        "properties": {
+          "since": { "type": "string", "format": "date-time" }
+        }
+      },
+
+      "SyncProfileResponse": {
+        "type": "object",
+        "properties": {
+          "synced_count": { "type": "integer" }
+        }
+      }
+    }
+  },
+
+  "paths": {
+    "/v2/remittances": {
+      "post": {
+        "tags": ["Remittances"],
+        "summary": "Create Remittance",
+        "operationId": "CreateRemittance",
+        "parameters": [
+          { "name": "X-Merchant-Id",   "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-Profile-Id",    "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "X-Correlation-Id","in": "header",                   "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RemittanceCreateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Remittance created",
+            "headers": {
+              "Location":         { "schema": { "type": "string", "format": "uri" } },
+              "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RemittanceCreateResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid request",       "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized",          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "409": { "description": "Idempotency conflict",  "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error",        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:create"] } ]
+      },
+
+      "get": {
+        "tags": ["Remittances"],
+        "summary": "List Remittances",
+        "operationId": "ListRemittances",
+        "parameters": [
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "limit",  "in": "query","schema": { "type": "integer","minimum": 1,"maximum": 100,"default": 10 } },
+          { "name": "cursor", "in": "query","schema": { "type": "string","nullable": true } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remittance list",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RemittanceListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:read"] } ]
+      }
+    },
+
+    "/v2/remittances/{remittance_id}": {
+      "get": {
+        "tags": ["Remittances"],
+        "summary": "Retrieve Remittance",
+        "operationId": "RetrieveRemittance",
+        "parameters": [
+          { "name": "remittance_id","in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "force_sync",   "in": "query","schema": { "type": "boolean", "default": false } },
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Remittance details",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RemittanceResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Not found",    "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:read"] } ]
+      },
+
+      "patch": {
+        "tags": ["Remittances"],
+        "summary": "Update Remittance",
+        "operationId": "UpdateRemittance",
+        "parameters": [
+          { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "Idempotency-Key","in": "header","schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RemittanceUpdateRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RemittanceResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid payload","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:update"] } ]
+      },
+
+      "delete": {
+        "tags": ["Remittances"],
+        "summary": "Delete Remittance",
+        "operationId": "DeleteRemittance",
+        "parameters": [
+          { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "Idempotency-Key","in": "header","schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted successfully",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } }
+          },
+          "400": { "description": "Bad request","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "401": { "description": "Unauthorized","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Not found","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:delete"] } ]
+      }
+    },
+
+    "/v2/remittances/{remittance_id}/pay": {
+      "post": {
+        "tags": ["Remittances"],
+        "summary": "Pay Remittance",
+        "operationId": "PayRemittance",
+        "parameters": [
+          { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "Idempotency-Key","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Correlation-Id","in": "header","schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RemittancePaymentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment processed",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RemittancePaymentResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid payment","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "402": { "description": "Payment declined","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Validation error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:pay"] } ]
+      }
+    },
+
+    "/v2/remittances/{remittance_id}/pay/thirdparty": {
+      "post": {
+        "tags": ["Remittances"],
+        "summary": "Pay Remittance to Third-Party",
+        "operationId": "PayRemittanceThirdParty",
+        "parameters": [
+          { "name": "remittance_id","in": "path","required": true,"schema": { "type": "string" } },
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "Idempotency-Key","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Correlation-Id","in": "header","schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ThirdPartyPaymentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Third-party payment processed",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ThirdPartyPaymentResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid data","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Validation error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:pay"] } ]
+      }
+    },
+
+    "/v2/remittances/transactions": {
+      "get": {
+        "tags": ["Remittances"],
+        "summary": "List Remittance Transactions",
+        "operationId": "ListRemittanceTransactions",
+        "parameters": [
+          { "name": "X-Merchant-Id","in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "X-Profile-Id", "in": "header","required": true,"schema": { "type": "string" } },
+          { "name": "limit",  "in": "query","schema": { "type": "integer","minimum": 1,"maximum": 100,"default": 10 } },
+          { "name": "cursor", "in": "query","schema": { "type": "string","nullable": true } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction list",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format": "uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransactionListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:read"] } ]
+      }
+    },
+
+    "/v2/remittances/webhook": {
+      "post": {
+        "tags": ["Remittances"],
+        "summary": "Remittance Webhook",
+        "operationId": "RemittanceWebhook",
+        "parameters": [
+          { "name": "X-Correlation-Id","in":"header","schema": { "type": "string", "format":"uuid" } },
+          { "name": "X-Signature","in":"header","required": true,"schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RemittanceStatusUpdate" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Accepted" },
+          "400": { "description": "Invalid payload","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:webhook"] } ]
+      }
+    },
+
+    "/v2/remittances/sync/merchant": {
+      "post": {
+        "tags": ["Remittances"],
+        "summary": "Sync Remittances by Merchant",
+        "operationId": "SyncRemittancesMerchant",
+        "parameters": [
+          { "name": "X-Merchant-Id","in":"header","required": true,"schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SyncMerchantRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync complete",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SyncMerchantResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid data","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:sync"] } ]
+      }
+    },
+
+    "/v2/remittances/sync/profile": {
+      "post": {
+        "tags": ["Remittances"],
+        "summary": "Sync Remittances by Profile",
+        "operationId": "SyncRemittancesProfile",
+        "parameters": [
+          { "name": "X-Profile-Id","in":"header","required": true,"schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SyncProfileRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync complete",
+            "headers": { "X-Correlation-Id": { "schema": { "type": "string", "format":"uuid" } } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SyncProfileResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid data","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "500": { "description": "Internal error","content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [ { "api_key": [], "oauth2": ["remittances:sync"] } ]
+      }
+    }
+  }
+,
     "/relay": {
       "post": {
         "tags": [

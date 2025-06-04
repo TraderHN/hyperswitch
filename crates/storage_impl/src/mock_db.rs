@@ -63,6 +63,14 @@ pub struct MockDb {
     pub user_authentication_methods:
         Arc<Mutex<Vec<store::user_authentication_method::UserAuthenticationMethod>>>,
     pub themes: Arc<Mutex<Vec<store::user::theme::Theme>>>,
+        #[cfg(feature = "remittances")]
+    pub remittances: Arc<Mutex<Vec<diesel_models::remittances::Remittance>>>,
+    
+    #[cfg(feature = "remittances")]
+    pub remittance_payments: Arc<Mutex<Vec<diesel_models::remittances::RemittancePayment>>>,
+    
+    #[cfg(feature = "remittances")]
+    pub remittance_payouts: Arc<Mutex<Vec<diesel_models::remittances::RemittancePayout>>>,
 }
 
 impl MockDb {
@@ -109,6 +117,14 @@ impl MockDb {
             user_key_store: Default::default(),
             user_authentication_methods: Default::default(),
             themes: Default::default(),
+                        #[cfg(feature = "remittances")]
+            remittances: Default::default(),
+            
+            #[cfg(feature = "remittances")]
+            remittance_payments: Default::default(),
+            
+            #[cfg(feature = "remittances")]
+            remittance_payouts: Default::default(),
         })
     }
 

@@ -37,7 +37,8 @@ pub mod routing;
 pub mod type_encryption;
 pub mod types;
 pub mod vault;
-
+#[cfg(feature = "remittances")]
+pub mod remittances;
 #[cfg(not(feature = "payouts"))]
 pub trait PayoutAttemptInterface {}
 

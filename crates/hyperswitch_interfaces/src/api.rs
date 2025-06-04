@@ -20,12 +20,19 @@ pub mod payouts;
 pub mod payouts_v2;
 pub mod refunds;
 pub mod refunds_v2;
-#[cfg(feature = "remittances")]
-pub mod remittances;
+
 pub mod revenue_recovery;
 pub mod revenue_recovery_v2;
 pub mod vault;
 pub mod vault_v2;
+#[cfg(feature = "remittances")]
+pub mod remittances;
+
+#[cfg(feature = "remittances")]
+pub use self::remittances::{
+    Remittances,
+};
+
 
 use std::fmt::Debug;
 
@@ -103,6 +110,7 @@ pub trait Connector:
     + UnifiedAuthenticationService
     + revenue_recovery::RevenueRecovery
     + ExternalVault
+    + Remittances
 {
 }
 
@@ -124,7 +132,8 @@ impl<
             + TaxCalculation
             + UnifiedAuthenticationService
             + revenue_recovery::RevenueRecovery
-            + ExternalVault,
+            + ExternalVault
+            + Remittances
     > Connector for T
 {
 }

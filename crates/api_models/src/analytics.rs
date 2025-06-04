@@ -1,6 +1,4 @@
 use std::collections::HashSet;
-#[cfg(feature = "remittances")]
-use crate::enums::RemittanceMethod;
 pub use common_utils::types::TimeRange;
 use common_utils::{events::ApiEventMetric, pii::EmailStrategy, types::authentication::AuthInfo};
 use masking::Secret;

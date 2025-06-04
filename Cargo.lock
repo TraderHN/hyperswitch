@@ -3948,6 +3948,7 @@ dependencies = [
  "time",
  "url",
  "utoipa",
+ "uuid",
 ]
 
 [[package]]
@@ -3975,6 +3976,7 @@ dependencies = [
  "thiserror 1.0.63",
  "time",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -7840,6 +7842,7 @@ dependencies = [
  "error-stack",
  "futures 0.3.30",
  "hyperswitch_domain_models",
+ "hyperswitch_interfaces",
  "masking",
  "moka",
  "redis_interface",
@@ -7848,7 +7851,9 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.63",
+ "time",
  "tokio 1.40.0",
+ "uuid",
 ]
 
 [[package]]

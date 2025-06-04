@@ -1,19 +1,31 @@
+// crates/hyperswitch_domain_models/src/remittances.rs
+
 use common_utils::{
-    crypto::Encryptable,
-    id_type::{MerchantId, PaymentId, PayoutId, ProfileId},
+    errors::CustomResult,
+    id_type::{MerchantId, PaymentId, ProfileId},
     pii::SecretSerdeValue,
     types::MinorUnit,
+    types::keymanager::KeyManagerState,
 };
+use common_enums::enums::{self as enums, Currency, RemittanceStatus, MerchantStorageScheme};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use uuid::Uuid;
 
-use crate::enums::{self, Currency, RemittanceStatus};
+use async_trait::async_trait;
+use crate::merchant_key_store::MerchantKeyStore;
+use diesel_models::remittances::{
+    RemittanceUpdateInternal, RemittancePaymentUpdate, RemittancePayoutUpdate,
+};
+
+/// Alias local hasta que `PayoutId` se exponga en `common_utils::id_type`
+pub type PayoutId = String;
 
 /// Modelo de dominio para remesas
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Remittance {
     pub id: i32,
-    pub remittance_id: String,
+    pub remittance_id: Uuid,
     pub merchant_id: MerchantId,
     pub profile_id: ProfileId,
     pub connector: String,
@@ -63,97 +75,54 @@ pub enum RemittancePurpose {
     Other(String),
 }
 
-/// Tipo de wallet
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WalletType {
-    /// Mobile money wallet
-    MobileMoney,
-    /// Digital wallet
-    DigitalWallet,
-    /// Bank wallet
-    BankWallet,
-    /// Crypto wallet
-    CryptoWallet,
-    /// Other wallet type
-    Other,
-}
-
 /// Información de tasa de cambio
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExchangeRateInfo {
-    /// Exchange rate (1 source = X destination)
     pub rate: f64,
-    /// Optional markup percentage
     pub markup: Option<f64>,
-    /// Source currency
     pub source_currency: Currency,
-    /// Destination currency
     pub destination_currency: Currency,
-    /// Rate valid until timestamp
     pub valid_until: Option<OffsetDateTime>,
 }
 
 /// Detalles del remitente
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SenderDetails {
-    /// Full name of sender
     pub name: String,
-    /// Optional customer ID if sender is an existing customer
     pub customer_id: Option<String>,
-    /// Optional customer details
     pub customer_details: Option<CustomerDetails>,
-    /// Optional email
     pub email: Option<String>,
-    /// Optional phone number
     pub phone: Option<String>,
-    /// Optional phone country code
     pub phone_country_code: Option<String>,
-    /// Optional address
     pub address: Option<Address>,
-    /// Payment method data to use for funding
     pub payment_method_data: Option<PaymentMethodData>,
 }
 
 /// Detalles del beneficiario
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BeneficiaryDetails {
-    /// Full name of beneficiary
     pub name: String,
-    /// Optional first name
     pub first_name: Option<String>,
-    /// Optional last name
     pub last_name: Option<String>,
-    /// Optional customer ID
     pub customer_id: Option<String>,
-    /// Optional email
     pub email: Option<String>,
-    /// Optional phone number
     pub phone: Option<String>,
-    /// Optional phone country code
     pub phone_country_code: Option<String>,
-    /// Optional address
     pub address: Option<Address>,
-    /// Payout method details (bank account, wallet, etc.)
     pub payout_details: Option<PayoutMethodData>,
-    /// Optional relationship to sender
     pub relationship: Option<String>,
 }
 
-/// Detalles del cliente
+/// Datos comunes de cliente
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CustomerDetails {
-    /// Full name
     pub name: Option<String>,
-    /// Email
     pub email: Option<String>,
-    /// Phone number
     pub phone: Option<String>,
-    /// Phone country code
     pub phone_country_code: Option<String>,
 }
 
-/// Dirección
+/// Dirección genérica
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Address {
     pub line1: Option<String>,
@@ -167,7 +136,7 @@ pub struct Address {
     pub last_name: Option<String>,
 }
 
-/// Método de pago para datos de remesa
+/// Métodos de pago
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum PaymentMethodData {
@@ -182,7 +151,6 @@ pub enum PaymentMethodData {
     Cash(CashData),
 }
 
-/// Datos de tarjeta
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardData {
     pub card_number: String,
@@ -192,7 +160,6 @@ pub struct CardData {
     pub card_cvc: String,
 }
 
-/// Datos bancarios
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BankData {
     pub account_number: String,
@@ -202,7 +169,6 @@ pub struct BankData {
     pub account_holder_name: Option<String>,
 }
 
-/// Datos de wallet
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletData {
     pub wallet_id: String,
@@ -210,21 +176,18 @@ pub struct WalletData {
     pub wallet_reference: Option<String>,
 }
 
-/// Datos crypto
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CryptoData {
     pub crypto_address: String,
     pub crypto_currency: String,
 }
 
-/// Datos UPI
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpiData {
     pub upi_id: String,
     pub vpa_id: Option<String>,
 }
 
-/// Datos PayLater
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PayLaterData {
     pub provider: String,
@@ -232,7 +195,6 @@ pub struct PayLaterData {
     pub redirect_url: Option<String>,
 }
 
-/// Datos tarjeta regalo
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GiftCardData {
     pub gift_card_number: String,
@@ -240,149 +202,267 @@ pub struct GiftCardData {
     pub gift_card_provider: String,
 }
 
-/// Datos voucher
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VoucherData {
     pub voucher_number: String,
     pub voucher_provider: String,
 }
 
-/// Datos efectivo
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashData {
     pub payment_reference: String,
 }
 
-/// Método de payout para remesas
+/// Métodos de payout
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum PayoutMethodData {
-    /// Bank transfer details
     BankTransfer(BankTransferData),
-    /// Card payout details (push-to-card)
     Card(CardPayoutData),
-    /// Digital wallet payout
     Wallet(WalletPayoutData),
-    /// Cash pickup
     CashPickup(CashPickupData),
 }
 
-/// Bank account details
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BankTransferData {
-    /// Account number
     pub account_number: String,
-    /// Routing/Sort/BSB code
     pub routing_number: Option<String>,
-    /// BIC/SWIFT code
     pub bic: Option<String>,
-    /// IBAN
     pub iban: Option<String>,
-    /// Bank name
     pub bank_name: Option<String>,
-    /// Bank country
     pub bank_country: Option<enums::CountryAlpha2>,
-    /// Bank address
     pub bank_address: Option<String>,
-    /// Account type
     pub account_type: Option<BankAccountType>,
 }
 
-/// Bank account type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BankAccountType {
-    /// Checking account
     Checking,
-    /// Savings account
     Savings,
-    /// Corporate account
     Corporate,
 }
 
-/// Card payout data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CardPayoutData {
-    /// Card token for push-to-card
     pub card_token: String,
-    /// Last four digits
     pub last4: Option<String>,
-    /// Card network
     pub card_network: Option<enums::CardNetwork>,
 }
 
-/// Digital wallet data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletPayoutData {
-    /// Wallet type
     pub wallet_type: WalletType,
-    /// Wallet ID/phone number
     pub wallet_id: String,
-    /// Provider-specific data
     pub provider_details: Option<SecretSerdeValue>,
 }
 
-/// Cash pickup data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashPickupData {
-    /// Pickup location code
     pub location_code: String,
-    /// Pickup location name
     pub location_name: Option<String>,
-    /// Pickup country
     pub country: Option<enums::CountryAlpha2>,
-    /// Additional pickup instructions
     pub instructions: Option<String>,
 }
 
-/// Compliance status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WalletType {
+    MobileMoney,
+    DigitalWallet,
+    BankWallet,
+    CryptoWallet,
+    Other,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplianceStatus {
-    /// Current compliance status
     pub status: ComplianceCheckStatus,
-    /// Required information list
     pub required_info: Option<Vec<String>>,
-    /// Status message
     pub message: Option<String>,
 }
 
-/// Compliance check status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ComplianceCheckStatus {
-    /// Initial state
     Pending,
-    /// Under manual review
     Reviewing,
-    /// Approved
     Approved,
-    /// Rejected
     Rejected,
-    /// Additional information required
     AdditionalInfoRequired,
 }
 
-/// Required document
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequiredDocument {
-    /// Document type
     pub document_type: String,
-    /// Description
     pub description: Option<String>,
-    /// Document status
     pub status: DocumentStatus,
 }
 
-/// Document status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DocumentStatus {
-    /// Document required
     Required,
-    /// Document submitted
     Submitted,
-    /// Document approved
     Approved,
-    /// Document rejected
     Rejected,
+}
+
+/// Modelo de dominio para pagos de remesa
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RemittancePayment {
+    pub remittance_id: Uuid,
+    pub payment_id: PaymentId,
+    pub connector: String,
+    pub connector_transaction_id: Option<String>,
+    pub status: RemittanceStatus,
+    pub failure_reason: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+}
+
+/// Modelo de dominio para liquidaciones de remesa
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RemittancePayout {
+    pub remittance_id: Uuid,
+    pub payout_id: PayoutId,
+    pub connector: String,
+    pub connector_transaction_id: Option<String>,
+    pub status: RemittanceStatus,
+    pub failure_reason: Option<String>,
+    pub created_at: OffsetDateTime,
+    pub updated_at: OffsetDateTime,
+}
+
+// -----------------------------------------------------------------------------
+// Traits de interfaz de almacenamiento
+// -----------------------------------------------------------------------------
+
+/// Almacén de Remittances
+#[async_trait]
+pub trait RemittanceInterface {
+    /// Tipo de error devuelto por el store
+    type Error;
+
+    /// Busca una remesa por su UUID
+    async fn find_remittance_by_id(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        remittance_id: &Uuid,
+        storage_scheme: MerchantStorageScheme,
+    ) -> CustomResult<Remittance, Self::Error>;
+
+    /// Busca una remesa por (merchant_id, reference)
+    async fn find_remittance_by_merchant_id_reference(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        merchant_id: &MerchantId,
+        reference: &str,
+        storage_scheme: MerchantStorageScheme,
+    ) -> CustomResult<Remittance, Self::Error>;
+
+    /// Inserta una nueva remesa
+    async fn insert_remittance(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        remittance: Remittance,
+        storage_scheme: MerchantStorageScheme,
+    ) -> CustomResult<Remittance, Self::Error>;
+
+    /// Actualiza una remesa existente
+    async fn update_remittance(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        remittance: Remittance,
+        remittance_update: RemittanceUpdateInternal,
+        storage_scheme: MerchantStorageScheme,
+    ) -> CustomResult<Remittance, Self::Error>;
+
+    /// Filtra remesas por merchant_id + profile_id
+    async fn find_remittances_by_merchant_id_profile_id(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        merchant_id: &MerchantId,
+        profile_id: &ProfileId,
+        limit: Option<i64>,
+        storage_scheme: MerchantStorageScheme,
+    ) -> CustomResult<Vec<Remittance>, Self::Error>;
+
+    /// Filtra remesas por merchant_id + estado
+    async fn find_remittances_by_merchant_id_status(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        merchant_id: &MerchantId,
+        status: RemittanceStatus,
+        limit: Option<i64>,
+        storage_scheme: MerchantStorageScheme,
+    ) -> CustomResult<Vec<Remittance>, Self::Error>;
+}
+
+/// Almacén de pagos de remesa
+#[async_trait]
+pub trait RemittancePaymentInterface {
+    type Error;
+
+    /// Busca el pago de remesa asociado a una remittance_id
+    async fn find_remittance_payment_by_remittance_id(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        remittance_id: &Uuid,
+    ) -> CustomResult<RemittancePayment, Self::Error>;
+
+    /// Inserta un nuevo pago de remesa
+    async fn insert_remittance_payment(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        payment: RemittancePayment,
+    ) -> CustomResult<RemittancePayment, Self::Error>;
+
+    /// Actualiza un pago de remesa existente
+    async fn update_remittance_payment(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        payment: RemittancePayment,
+        update: RemittancePaymentUpdate,
+    ) -> CustomResult<RemittancePayment, Self::Error>;
+}
+
+/// Almacén de liquidaciones de remesa (payouts)
+#[async_trait]
+pub trait RemittancePayoutInterface {
+    type Error;
+
+    /// Busca la liquidación (payout) asociada a una remittance_id
+    async fn find_remittance_payout_by_remittance_id(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        remittance_id: &Uuid,
+    ) -> CustomResult<RemittancePayout, Self::Error>;
+
+    /// Inserta una nueva liquidación de remesa
+    async fn insert_remittance_payout(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        payout: RemittancePayout,
+    ) -> CustomResult<RemittancePayout, Self::Error>;
+
+    /// Actualiza una liquidación de remesa existente
+    async fn update_remittance_payout(
+        &self,
+        state: &KeyManagerState,
+        key_store: &MerchantKeyStore,
+        payout: RemittancePayout,
+        update: RemittancePayoutUpdate,
+    ) -> CustomResult<RemittancePayout, Self::Error>;
 }

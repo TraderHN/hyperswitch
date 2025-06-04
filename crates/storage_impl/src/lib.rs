@@ -27,6 +27,7 @@ pub mod payments;
 pub mod payouts;
 pub mod redis;
 pub mod refund;
+pub mod remittances;  
 mod reverse_lookup;
 pub mod utils;
 

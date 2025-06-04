@@ -61,6 +61,15 @@ use hyperswitch_domain_models::{
     router_request_types::PayoutsData,
     router_response_types::PayoutsResponseData,
 };
+#[cfg(feature = "remittances")]
+use crate::api::remittances::{
+    RemittanceQuoteOp,   RemittanceQuoteRequestData,   RemittanceQuoteResponseData,
+    RemittanceCreateOp,  RemittanceCreateRequestData,  RemittanceCreateResponseData,
+    RemittanceStatusOp,  RemittanceStatusRequestData,  RemittanceStatusResponseData,
+    RemittanceCancelOp,  RemittanceCancelRequestData,  RemittanceCancelResponseData,
+    RemittancePayoutOp,  RemittancePayoutRequestData,  RemittancePayoutResponseData,
+    RemittanceExecuteOp, RemittanceExecuteRequestData, RemittanceExecuteResponseData,
+};
 
 use crate::{api::ConnectorIntegration, connector_integration_v2::ConnectorIntegrationV2};
 /// struct Response
@@ -180,6 +189,7 @@ pub type PayoutQuoteType = dyn ConnectorIntegration<PoQuote, PayoutsData, Payout
 /// Type alias for `ConnectorIntegration<PoSync, PayoutsData, PayoutsResponseData>`
 #[cfg(feature = "payouts")]
 pub type PayoutSyncType = dyn ConnectorIntegration<PoSync, PayoutsData, PayoutsResponseData>;
+
 /// Type alias for `ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken>`
 pub type RefreshTokenType =
     dyn ConnectorIntegration<AccessTokenAuth, AccessTokenRequestData, AccessToken>;
@@ -210,6 +220,54 @@ pub type RetrieveFileType =
 pub type DefendDisputeType =
     dyn ConnectorIntegration<Defend, DefendDisputeRequestData, DefendDisputeResponse>;
 
+
+#[cfg(feature = "remittances")]
+/// Alias para `ConnectorIntegration<RemittanceQuoteOp, RemittanceQuoteRequestData, RemittanceQuoteResponseData>`
+pub type RemittanceQuoteType = dyn ConnectorIntegration<
+    RemittanceQuoteOp,
+    RemittanceQuoteRequestData,
+    RemittanceQuoteResponseData,
+>;
+
+#[cfg(feature = "remittances")]
+/// Alias para `ConnectorIntegration<RemittanceCreateOp, RemittanceCreateRequestData, RemittanceCreateResponseData>`
+pub type RemittanceCreateType = dyn ConnectorIntegration<
+    RemittanceCreateOp,
+    RemittanceCreateRequestData,
+    RemittanceCreateResponseData,
+>;
+
+#[cfg(feature = "remittances")]
+/// Alias para `ConnectorIntegration<RemittanceStatusOp, RemittanceStatusRequestData, RemittanceStatusResponseData>`
+pub type RemittanceStatusType = dyn ConnectorIntegration<
+    RemittanceStatusOp,
+    RemittanceStatusRequestData,
+    RemittanceStatusResponseData,
+>;
+
+#[cfg(feature = "remittances")]
+/// Alias para `ConnectorIntegration<RemittanceCancelOp, RemittanceCancelRequestData, RemittanceCancelResponseData>`
+pub type RemittanceCancelType = dyn ConnectorIntegration<
+    RemittanceCancelOp,
+    RemittanceCancelRequestData,
+    RemittanceCancelResponseData,
+>;
+
+#[cfg(feature = "remittances")]
+/// Alias para `ConnectorIntegration<RemittancePayoutOp, RemittancePayoutRequestData, RemittancePayoutResponseData>`
+pub type RemittancePayoutType = dyn ConnectorIntegration<
+    RemittancePayoutOp,
+    RemittancePayoutRequestData,
+    RemittancePayoutResponseData,
+>;
+
+#[cfg(feature = "remittances")]
+/// Alias para `ConnectorIntegration<RemittanceExecuteOp, RemittanceExecuteRequestData, RemittanceExecuteResponseData>`
+pub type RemittanceExecuteType = dyn ConnectorIntegration<
+    RemittanceExecuteOp,
+    RemittanceExecuteRequestData,
+    RemittanceExecuteResponseData,
+>;
 /// Type alias for `ConnectorIntegration<PreAuthenticate, UasPreAuthenticationRequestData, UasAuthenticationResponseData>`
 pub type UasPreAuthenticationType = dyn ConnectorIntegration<
     PreAuthenticate,
